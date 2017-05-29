@@ -1,4 +1,4 @@
-"""<b>Measure Object Intensity Distribution</b> measures the distribution 
+"""<b>Measure Object Intensity Distribution</b> measures the distribution
 of intensities within each object.
 <hr>
 Given an image with objects identified, this module measures the
@@ -258,6 +258,16 @@ class MeasureObjectIntensityDistribution(cpm.Module):
                 radius. Parts of the object that are beyond this radius will be
                 counted in an overflow bin. The radius is measured in pixels."""))
 
+        group.append("wants_from_edge", cps.Binary(
+                "Start the bins from the edge?", True, doc="""
+                This option works when bins are not scaled. It allows you to select
+                whether the distance is measured from the center of the object or from
+                its edge.
+                <p>Select <i>%(YES)s</i> to divide the object radially into bins,
+                starting from the edge. </p>
+                <p>Select <i>%(NO)s</i> to divide the object radially into bins,
+                starting from the center. </p>""" % globals()))
+
         group.can_remove = can_remove
         if can_remove:
             group.append("remover", cps.RemoveSettingButton("", "Remove this set of bins", self.bin_counts, group))
@@ -383,6 +393,7 @@ class MeasureObjectIntensityDistribution(cpm.Module):
             result += [settings.wants_scaled, settings.bin_count]
             if not settings.wants_scaled:
                 result += [settings.maximum_radius]
+                result += [settings.wants_from_edge]
             if settings.can_remove:
                 result += [settings.remover]
         result += [self.add_bin_count_button, self.spacer_3]
@@ -537,6 +548,7 @@ class MeasureObjectIntensityDistribution(cpm.Module):
         bin_count = bin_count_settings.bin_count.value
         wants_scaled = bin_count_settings.wants_scaled.value
         maximum_radius = bin_count_settings.maximum_radius.value
+        wants_from_edge = bin_count_settings.wants_from_edge.value
 
         image = workspace.image_set.get_image(image_name,
                                               must_be_grayscale=True)
@@ -673,8 +685,12 @@ class MeasureObjectIntensityDistribution(cpm.Module):
                 normalized_distance[good_mask] = (d_from_center[good_mask] /
                                                   (total_distance[good_mask] + .001))
             else:
-                normalized_distance[good_mask] = \
-                    d_from_center[good_mask] / maximum_radius
+                if wants_from_edge:
+                    normalized_distance[good_mask] = \
+                        d_to_edge[good_mask] / maximum_radius
+                else:
+                    normalized_distance[good_mask] = \
+                        d_from_center[good_mask] / maximum_radius
             dd[name] = [normalized_distance, i_center, j_center, good_mask]
         ngood_pixels = np.sum(good_mask)
         good_labels = labels[good_mask]
