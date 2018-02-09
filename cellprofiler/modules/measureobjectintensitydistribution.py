@@ -405,6 +405,23 @@ in pixels.
             )
         )
 
+        group.append(
+            "wants_from_edge",
+            cellprofiler.setting.Binary(
+                "Start the bins from the edge?",
+                True,
+                doc="""\
+This option works when bins are not scaled. It allows you to select
+whether the distance is measured from the center of the object or from
+its edge.
+<p>Select <i>*{YES}*</i> to divide the object radially into bins,
+starting from the edge. </p>
+<p>Select <i>*{YES}*</i> to divide the object radially into bins,
+starting from the center. </p>
+"""
+            )
+        )
+
         group.can_remove = can_remove
 
         if can_remove:
@@ -611,6 +628,7 @@ be selected in a later **SaveImages** or other module.
 
             if not settings.wants_scaled:
                 result += [settings.maximum_radius]
+                result += [settings.wants_from_edge]
 
             if settings.can_remove:
                 result += [settings.remover]
@@ -684,7 +702,7 @@ be selected in a later **SaveImages** or other module.
             self.calculate_zernikes(workspace)
 
         if self.show_window:
-            workspace.display_data.header = header
+            #workspace.display_data.header = header
 
             workspace.display_data.stats = stats
 
@@ -813,6 +831,8 @@ be selected in a later **SaveImages** or other module.
         wants_scaled = bin_count_settings.wants_scaled.value
 
         maximum_radius = bin_count_settings.maximum_radius.value
+
+        wants_from_edge = bin_count_settings.wants_from_edge.value
 
         image = workspace.image_set.get_image(image_name, must_be_grayscale=True)
 
@@ -991,12 +1011,18 @@ be selected in a later **SaveImages** or other module.
 
             normalized_distance = numpy.zeros(labels.shape)
 
+            workspace.display_data.header = ("Image", "Objects", "Bin # (innermost=1)", "Bin count", "Fraction", "Intensity", "COV")
             if wants_scaled:
                 total_distance = d_from_center + d_to_edge
 
                 normalized_distance[good_mask] = (d_from_center[good_mask] / (total_distance[good_mask] + .001))
             else:
-                normalized_distance[good_mask] = d_from_center[good_mask] / maximum_radius
+                #normalized_distance[good_mask] = d_from_center[good_mask] / maximum_radius
+                if wants_from_edge:
+                    workspace.display_data.header = ("Image", "Objects", "Bin # (outermost=1)", "Bin count", "Fraction", "Intensity", "COV")
+                    normalized_distance[good_mask] = d_to_edge[good_mask] / maximum_radius
+                else:
+                    normalized_distance[good_mask] = d_from_center[good_mask] / maximum_radius
 
             dd[name] = [normalized_distance, i_center, j_center, good_mask]
 
